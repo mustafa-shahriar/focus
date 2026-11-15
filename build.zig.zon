@@ -1,0 +1,13 @@
+.{
+    .name = .pomodoro_with_todo,
+    .version = "0.1.0",
+    .fingerprint = 0xa4f684522b78fe4a,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .nanoui = .{
+            .url = "git+https://github.com/justrach/nanoui?ref=main#8168b777985b37779fc0e333e1291138aa9bc882",
+            .hash = "nanoui-0.14.1-we0KMY_6PAD3bI7Txflz4lAApWxrZ8u_SihdfmO302IL",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}
