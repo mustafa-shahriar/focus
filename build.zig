@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "pomodoro",
+        .name = "focus",
         .root_module = root_mod,
     });
 
