@@ -291,7 +291,7 @@ fn sideColumn(
 }
 
 fn currentTask(state: *AppState, c: *ui.Context, t: colors.Palette, accent: u32) void {
-    const card = kit.panel(c, t);
+    const card = kit.panel(c, t).itemsCenter();
     defer card.end();
 
     {
