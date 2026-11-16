@@ -147,16 +147,17 @@ fn completionSummary(state: *AppState, c: *ui.Context, t: colors.Palette) void {
 }
 
 fn composer(state: *AppState, c: *ui.Context, t: colors.Palette) void {
-    const wrap = ui.div(c).row().wFull().gap(10).itemsCenter().pt(14).pb(12);
-    defer wrap.end();
+    const lane = ui.div(c).column().wFull().pt(14).pb(12);
+    defer lane.end();
 
     const field = ui.div(c)
         .row()
-        .grow()
-        .h(46)
-        .px(14)
-        .gap(9)
-        .rounded(14)
+        .wFull()
+        .h(50)
+        .p(5)
+        .pl(14)
+        .gap(10)
+        .rounded(15)
         .bg(t.hex(t.bg_card))
         .border(t.hex(t.border))
         .borderW(1)
@@ -176,37 +177,32 @@ fn composer(state: *AppState, c: *ui.Context, t: colors.Palette) void {
         .size = 13.5,
         .bare = true,
     });
-    if (result.submitted) {
-        const text = input_buf.text();
-        if (text.len > 0) {
-            state.todos.addItem(text);
-            input_buf.clear();
-        }
-    }
+    if (result.submitted) submit(state);
 
     ui.kbd(c, "Enter");
 
     {
         const add_btn = ui.div(c)
-            .row()
-            .w(46)
-            .h(46)
-            .rounded(14)
+            .w(40)
+            .h(40)
+            .rounded(11)
             .bg(t.hex(t.accent))
-            .gradient(t.hex(t.accent_hover))
+            .gradient(t.hex(t.accent).mix(ui.Color.black, 0.12))
             .itemsCenter()
             .justifyCenter()
             .hover(t.hex(t.accent_hover))
-            .shadow(.{ .color = t.soft(t.accent, 0.36), .blur = 16, .y = 6 });
+            .shadow(.{ .color = t.soft(t.accent, 0.32), .blur = 10, .y = 3 });
         defer add_btn.end();
-        if (add_btn.clicked()) {
-            const text = input_buf.text();
-            if (text.len > 0) {
-                state.todos.addItem(text);
-                input_buf.clear();
-            }
-        }
-        ui.icon(c, "plus", .{ .size = 18, .color = t.hex(t.text_on_accent) });
+        if (add_btn.clicked()) submit(state);
+        ui.icon(c, "plus", .{ .size = 17, .color = t.hex(t.text_on_accent) });
+    }
+}
+
+fn submit(state: *AppState) void {
+    const text = input_buf.text();
+    if (text.len > 0) {
+        state.todos.addItem(text);
+        input_buf.clear();
     }
 }
 

@@ -1,8 +1,13 @@
 const nanoui = @import("nanoui");
+const std = @import("std");
 const ui = nanoui.ui;
 const AppState = @import("../app_state.zig").AppState;
 const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
+
+/// The typed text of each duration field, kept across frames so the caret and
+/// selection survive. The values themselves still live in `SettingsState`.
+var duration_bufs: [4]ui.TextBuffer = .{ .{}, .{}, .{}, .{} };
 
 pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
@@ -65,13 +70,13 @@ fn durationsCard(state: *AppState, c: *ui.Context, t: colors.Palette) void {
         });
     }
 
-    durationRow(c, t, "Focus duration", "Your deep work block", &state.settings.work_min, 1, 90, "min");
+    durationRow(c, t, "Focus duration", "Your deep work block", &duration_bufs[0], &state.settings.work_min, 1, 90, "min");
     kit.divider(c, t);
-    durationRow(c, t, "Short break", "A quick reset between sessions", &state.settings.short_break_min, 1, 30, "min");
+    durationRow(c, t, "Short break", "A quick reset between sessions", &duration_bufs[1], &state.settings.short_break_min, 1, 30, "min");
     kit.divider(c, t);
-    durationRow(c, t, "Long break", "Step away a little longer", &state.settings.long_break_min, 1, 60, "min");
+    durationRow(c, t, "Long break", "Step away a little longer", &duration_bufs[2], &state.settings.long_break_min, 1, 60, "min");
     kit.divider(c, t);
-    durationRow(c, t, "Long break interval", "Sessions before a long break", &state.settings.pomodoros_until_long_break, 1, 10, "sessions");
+    durationRow(c, t, "Long break interval", "Sessions before a long break", &duration_bufs[3], &state.settings.pomodoros_until_long_break, 1, 10, "sessions");
 }
 
 fn durationRow(
@@ -79,6 +84,7 @@ fn durationRow(
     t: colors.Palette,
     label: []const u8,
     hint: []const u8,
+    buf: *ui.TextBuffer,
     value: *u32,
     min_val: u32,
     max_val: u32,
@@ -101,63 +107,86 @@ fn durationRow(
         });
     }
 
-    stepper(c, t, value, min_val, max_val, unit);
+    durationInput(c, t, buf, value, min_val, max_val, unit);
 }
 
-fn stepper(c: *ui.Context, t: colors.Palette, value: *u32, min_val: u32, max_val: u32, unit: []const u8) void {
+/// A small number field: click it and type, or select all and replace. The
+/// value is applied as you type, clamped to the row's range, and tidied to
+/// its canonical form when the field loses the keyboard.
+fn durationInput(
+    c: *ui.Context,
+    t: colors.Palette,
+    buf: *ui.TextBuffer,
+    value: *u32,
+    min_val: u32,
+    max_val: u32,
+    unit: []const u8,
+) void {
     const group = ui.div(c)
         .row()
-        .p(3)
-        .rounded(11)
+        .w(112)
+        .h(34)
+        .px(10)
+        .rounded(10)
         .bg(t.hex(t.bg_secondary))
         .border(t.hex(t.border_subtle))
         .borderW(1)
-        .gap(2)
-        .itemsCenter();
+        .gap(6)
+        .itemsCenter()
+        .justifyBetween()
+        .hover(t.hex(t.bg_hover));
     defer group.end();
 
-    {
-        const minus = ui.div(c)
-            .w(27)
-            .h(27)
-            .rounded(8)
-            .itemsCenter()
-            .justifyCenter()
-            .hover(t.hex(t.bg_hover))
-            .opacity(if (value.* <= min_val) 0.35 else 1.0);
-        defer minus.end();
-        if (minus.clicked() and value.* > min_val) value.* -= 1;
-        ui.icon(c, "minus", .{ .size = 12, .color = t.hex(t.text_secondary) });
+    const result = ui.textField(c, buf, .{
+        .width = .{ .px = 30 },
+        .size = 13.5,
+        .weight = .semibold,
+        .color = t.hex(t.accent),
+        .caret_color = t.hex(t.accent),
+        .selection_color = t.soft(t.accent, 0.22),
+        .bare = true,
+        .filter = &digitsOnly,
+    });
+
+    ui.text(c, unit, .{
+        .size = 9.5,
+        .color = t.hex(t.text_muted),
+    });
+
+    if (result.submitted) {
+        if (parseClamped(buf.text(), min_val, max_val)) |v| value.* = v;
+        syncDuration(buf, value.*);
+    } else if (result.focused) {
+        if (parseClamped(buf.text(), min_val, max_val)) |v| value.* = v;
+    } else {
+        if (result.changed) {
+            if (parseClamped(buf.text(), min_val, max_val)) |v| value.* = v;
+        }
+        syncDuration(buf, value.*);
     }
 
-    {
-        const readout = ui.div(c).row().minW(70).itemsCenter().justifyCenter().gap(3);
-        defer readout.end();
-        ui.text(c, c.print("{d}", .{value.*}), .{
-            .size = 13,
-            .weight = .semibold,
-            .color = t.hex(t.accent),
-            .tabular = true,
-        });
-        ui.text(c, unit, .{
-            .size = 9.5,
-            .color = t.hex(t.text_muted),
-        });
+    if (result.focused) {
+        const style = &group.c.node(group.index).style;
+        style.border = t.soft(t.accent, 0.55);
+        style.border_width = 1.5;
     }
+}
 
-    {
-        const plus = ui.div(c)
-            .w(27)
-            .h(27)
-            .rounded(8)
-            .itemsCenter()
-            .justifyCenter()
-            .hover(t.hex(t.bg_hover))
-            .opacity(if (value.* >= max_val) 0.35 else 1.0);
-        defer plus.end();
-        if (plus.clicked() and value.* < max_val) value.* += 1;
-        ui.icon(c, "plus", .{ .size = 12, .color = t.hex(t.text_secondary) });
-    }
+fn digitsOnly(cp: u21) ?u21 {
+    return if (cp >= '0' and cp <= '9') cp else null;
+}
+
+fn parseClamped(text: []const u8, min_val: u32, max_val: u32) ?u32 {
+    const trimmed = std.mem.trim(u8, text, " \t");
+    if (trimmed.len == 0) return null;
+    const n = std.fmt.parseInt(u32, trimmed, 10) catch return null;
+    return @min(max_val, @max(min_val, n));
+}
+
+fn syncDuration(buf: *ui.TextBuffer, value: u32) void {
+    var tmp: [8]u8 = undefined;
+    const want = std.fmt.bufPrint(&tmp, "{d}", .{value}) catch return;
+    if (!std.mem.eql(u8, buf.text(), want)) buf.set(want);
 }
 
 fn automationCard(state: *AppState, c: *ui.Context, t: colors.Palette) void {

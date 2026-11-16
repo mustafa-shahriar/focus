@@ -2,26 +2,28 @@ const nanoui = @import("nanoui");
 const ui = nanoui.ui;
 const AppState = @import("app_state.zig").AppState;
 const colors = @import("theme/colors.zig");
-const sidebarView = @import("sidebar/sidebar_view.zig").view;
+const topbar = @import("topbar.zig");
 const timerView = @import("timer/timer_view.zig").view;
 const todoView = @import("todo/todo_view.zig").view;
 const statsView = @import("stats/stats_view.zig").view;
 const settingsView = @import("settings/settings_view.zig").view;
 
-/// Top-level view — renders sidebar + routed content.
+/// Top-level view — the app's title bar over the routed page.
 pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
     c.theme = colors.nanouiTheme(state.settings.dark_mode);
+    // The empty stretches of the bar drag the window, as a caption does.
+    c.title_bar_height = topbar.height;
 
-    const root = ui.div(c).row().sizeFull().bg(t.hex(t.bg_primary));
+    const root = ui.div(c).column().sizeFull().bg(t.hex(t.bg_primary));
     defer root.end();
 
-    sidebarView(state, c);
+    topbar.view(state, c);
 
     const content = ui.div(c)
         .column()
+        .wFull()
         .grow()
-        .hFull()
         .bg(t.hex(t.bg_primary))
         .gradient(t.hex(t.bg_secondary));
     defer content.end();

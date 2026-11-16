@@ -265,7 +265,13 @@ fn sideColumn(
     accent: u32,
     ps: timer_state.PhaseSettings,
 ) void {
-    const side = ui.div(c).column().w(248).hFull().gap(12);
+    const side = ui.div(c)
+        .column()
+        .w(248)
+        .hFull()
+        .gap(12)
+        .scrollY()
+        .scrollbar(.{ .overlay = t.soft(t.text_muted, 0.35) });
     defer side.end();
 
     currentTask(state, c, t, accent);
@@ -306,6 +312,7 @@ fn currentTask(state: *AppState, c: *ui.Context, t: colors.Palette, accent: u32)
                 .color = t.hex(t.text_primary),
                 .wrap = true,
                 .leading = 1.25,
+                .max_lines = 3,
             });
 
             {
@@ -464,7 +471,7 @@ fn todaySummary(
     }
 
     {
-        const numbers = ui.div(c).row().itemsEnd().gap(5);
+        const numbers = ui.div(c).row().itemsCenter().gap(6);
         defer numbers.end();
         ui.text(c, c.print("{d}", .{state.stats.todays_pomodoros}), .{
             .size = 28,
