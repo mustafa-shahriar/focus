@@ -9,5 +9,5 @@
             .hash = "nanoui-0.14.1-we0KMY_6PAD3bI7Txflz4lAApWxrZ8u_SihdfmO302IL",
         },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "src" },
+    .paths = .{ "build.zig", "build.zig.zon", "README.md", "ANDROID.md", "src" },
 }
