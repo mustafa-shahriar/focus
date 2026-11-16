@@ -5,13 +5,20 @@ const AppState = @import("../app_state.zig").AppState;
 const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
 const stats_state = @import("../stats/stats_state.zig");
+const responsive = @import("../responsive.zig");
 
 const mini_ring_size: f32 = 96;
 
 pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
+    const compact = responsive.isCompact(c);
 
-    const root = ui.div(c).column().sizeFull().px(30).pt(26).pb(24);
+    const root = ui.div(c)
+        .column()
+        .sizeFull()
+        .px(responsive.pagePadding(c))
+        .pt(if (compact) 16 else 26)
+        .pb(if (compact) 16 else 24);
     defer root.end();
 
     {
@@ -32,41 +39,63 @@ pub fn view(state: *AppState, c: *ui.Context) void {
             .scrollbar(.{ .overlay = t.soft(t.text_muted, 0.35) });
         defer scroll.end();
 
-        {
+        if (compact) {
+            {
+                const cards = ui.div(c).row().wFull().gap(8).itemsStretch();
+                defer cards.end();
+                kit.statCard(c, t, "chart.bar.xaxis", t.accent_blue, "Sessions", c.print("{d}", .{state.stats.total_pomodoros}), "all time", true);
+                kit.statCard(c, t, "gauge.with.dots.needle.33percent", t.accent_teal, "Focus time", c.print("{d}h {d}m", .{
+                    state.stats.total_focus_min / 60,
+                    state.stats.total_focus_min % 60,
+                }), "all time", true);
+            }
+            {
+                const cards = ui.div(c).row().wFull().gap(8).itemsStretch();
+                defer cards.end();
+                kit.statCard(c, t, "flame", t.accent_warm, "Streak", c.print("{d}", .{state.stats.current_streak}), "days in a row", true);
+                kit.statCard(c, t, "star.fill", t.accent_green, "Best streak", c.print("{d}", .{state.stats.best_streak}), "personal record", true);
+            }
+        } else {
             const cards = ui.div(c).row().wFull().gap(12).itemsStretch();
             defer cards.end();
-            kit.statCard(c, t, "chart.bar.xaxis", t.accent_blue, "Sessions", c.print("{d}", .{state.stats.total_pomodoros}), "all time");
+            kit.statCard(c, t, "chart.bar.xaxis", t.accent_blue, "Sessions", c.print("{d}", .{state.stats.total_pomodoros}), "all time", false);
             kit.statCard(c, t, "gauge.with.dots.needle.33percent", t.accent_teal, "Focus time", c.print("{d}h {d}m", .{
                 state.stats.total_focus_min / 60,
                 state.stats.total_focus_min % 60,
-            }), "all time");
-            kit.statCard(c, t, "flame", t.accent_warm, "Streak", c.print("{d}", .{state.stats.current_streak}), "days in a row");
-            kit.statCard(c, t, "star.fill", t.accent_green, "Best streak", c.print("{d}", .{state.stats.best_streak}), "personal record");
+            }), "all time", false);
+            kit.statCard(c, t, "flame", t.accent_warm, "Streak", c.print("{d}", .{state.stats.current_streak}), "days in a row", false);
+            kit.statCard(c, t, "star.fill", t.accent_green, "Best streak", c.print("{d}", .{state.stats.best_streak}), "personal record", false);
         }
 
         {
-            const mid = ui.div(c).row().wFull().gap(14).itemsStretch();
+            const mid = if (compact)
+                ui.div(c).column().wFull().gap(12).itemsStretch()
+            else
+                ui.div(c).row().wFull().gap(14).itemsStretch();
             defer mid.end();
-            dailyGoal(state, c, t);
+            dailyGoal(state, c, t, compact);
             weekChart(state, c, t);
         }
 
         {
-            const bottom = ui.div(c).row().wFull().gap(14).itemsStretch();
+            const bottom = if (compact)
+                ui.div(c).column().wFull().gap(12).itemsStretch()
+            else
+                ui.div(c).row().wFull().gap(14).itemsStretch();
             defer bottom.end();
-            summaryPanel(c, t, "TODAY", state.stats.todays_pomodoros, state.stats.todays_focus_min, t.hex(t.accent));
-            summaryPanel(c, t, "THIS WEEK", state.stats.weeklyPomodoros(), state.stats.weeklyFocusMin(), t.hex(t.accent_blue));
+            summaryPanel(c, t, "TODAY", state.stats.todays_pomodoros, state.stats.todays_focus_min, t.hex(t.accent), compact);
+            summaryPanel(c, t, "THIS WEEK", state.stats.weeklyPomodoros(), state.stats.weeklyFocusMin(), t.hex(t.accent_blue), compact);
         }
     }
 }
 
-fn dailyGoal(state: *AppState, c: *ui.Context, t: colors.Palette) void {
+fn dailyGoal(state: *AppState, c: *ui.Context, t: colors.Palette, compact: bool) void {
     const goal = @max(1, state.settings.pomodoros_until_long_break);
     const sessions = state.stats.todays_pomodoros;
     const ratio = @min(1.0, @as(f32, @floatFromInt(sessions)) / @as(f32, @floatFromInt(goal)));
     const remaining = if (sessions >= goal) 0 else goal - sessions;
 
-    const card = kit.panel(c, t).w(250).h(208);
+    const card = if (compact) kit.panel(c, t).wFull().h(208) else kit.panel(c, t).w(250).h(208);
     defer card.end();
 
     kit.sectionLabel(c, t, "DAILY GOAL");
@@ -209,7 +238,7 @@ fn weekChart(state: *AppState, c: *ui.Context, t: colors.Palette) void {
     }
 }
 
-fn summaryPanel(c: *ui.Context, t: colors.Palette, title: []const u8, sessions: u32, focus_min: u32, tint: ui.Color) void {
+fn summaryPanel(c: *ui.Context, t: colors.Palette, title: []const u8, sessions: u32, focus_min: u32, tint: ui.Color, compact: bool) void {
     const card = kit.panel(c, t).grow().h(126);
     defer card.end();
 
@@ -222,7 +251,7 @@ fn summaryPanel(c: *ui.Context, t: colors.Palette, title: []const u8, sessions: 
     }
 
     {
-        const values = ui.div(c).row().wFull().grow().gap(36).itemsCenter();
+        const values = ui.div(c).row().wFull().grow().gap(if (compact) 16 else 36).itemsCenter();
         defer values.end();
         valueBlock(c, t, c.print("{d}", .{sessions}), "SESSIONS", tint);
         valueBlock(c, t, c.print("{d}h {d}m", .{ focus_min / 60, focus_min % 60 }), "FOCUS TIME", t.hex(t.text_primary));

@@ -2,6 +2,8 @@
 
 The Android build packages Pomodoro Focus as a NativeActivity APK using nanoui's Android backend.
 
+The UI selects its compact layout below 680 logical units of width, with a mobile header and bottom navigation, stacked pages, and larger task controls. Resizing is based on width, so it also adapts to narrow desktop windows and tablet layouts.
+
 ## Requirements
 
 - Zig 0.17.0

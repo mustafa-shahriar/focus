@@ -5,13 +5,20 @@ const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
 const todo_state = @import("../todo/todo_state.zig");
 const Priority = todo_state.Priority;
+const responsive = @import("../responsive.zig");
 
 var input_buf: ui.TextBuffer = .{};
 
 pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
+    const compact = responsive.isCompact(c);
 
-    const root = ui.div(c).column().sizeFull().px(30).pt(26).pb(24);
+    const root = ui.div(c)
+        .column()
+        .sizeFull()
+        .px(responsive.pagePadding(c))
+        .pt(if (compact) 16 else 26)
+        .pb(if (compact) 16 else 24);
     defer root.end();
 
     {
@@ -45,7 +52,7 @@ pub fn view(state: *AppState, c: *ui.Context) void {
             var i: usize = 0;
             while (i < state.todos.item_count) : (i += 1) {
                 if (!state.todos.itemVisible(i)) continue;
-                todoRow(state, c, t, i);
+                todoRow(state, c, t, i, compact);
                 visible += 1;
             }
             if (visible == 0) {
@@ -68,7 +75,7 @@ fn filterTabs(state: *AppState, c: *ui.Context, t: colors.Palette) void {
 
     const names = [_][]const u8{ "All", "Active", "Done" };
     for (names, 0..) |name, i| {
-        const fi: todo_state.Filter = @enumFromInt(i);
+        const fi: todo_state.Filter = @fromBackingInt(@intCast(i));
         const active = state.todos.filter == fi;
         const tab_shadow: ui.Color = if (active)
             t.shadow(0.06, 0.45)
@@ -76,7 +83,7 @@ fn filterTabs(state: *AppState, c: *ui.Context, t: colors.Palette) void {
             ui.Color.transparent;
         const tab = ui.div(c)
             .px(13)
-            .py(6)
+            .py(if (responsive.isCompact(c)) 12 else 6)
             .rounded(8)
             .bg(if (active) (if (t.dark) t.hex(t.bg_hover) else t.hex(t.bg_card)) else ui.Color.transparent)
             .hover(if (active) (if (t.dark) t.hex(t.bg_hover) else t.hex(t.bg_card)) else t.hex(t.bg_hover))
@@ -108,10 +115,10 @@ fn completionSummary(state: *AppState, c: *ui.Context, t: colors.Palette) void {
         .border(t.hex(t.border_subtle))
         .borderW(1)
         .shadow(.{
-            .color = t.shadow(0.035, 0.35),
-            .blur = 14,
-            .y = 4,
-        });
+        .color = t.shadow(0.035, 0.35),
+        .blur = 14,
+        .y = 4,
+    });
     defer card.end();
 
     kit.iconTile(c, t.hex(t.accent_green), 38, "checklist", 18);
@@ -163,10 +170,10 @@ fn composer(state: *AppState, c: *ui.Context, t: colors.Palette) void {
         .borderW(1)
         .itemsCenter()
         .shadow(.{
-            .color = t.shadow(0.04, 0.35),
-            .blur = 12,
-            .y = 3,
-        });
+        .color = t.shadow(0.04, 0.35),
+        .blur = 12,
+        .y = 3,
+    });
     defer field.end();
 
     ui.icon(c, "plus", .{ .size = 14, .color = t.hex(t.text_muted) });
@@ -179,12 +186,12 @@ fn composer(state: *AppState, c: *ui.Context, t: colors.Palette) void {
     });
     if (result.submitted) submit(state);
 
-    ui.kbd(c, "Enter");
+    if (!responsive.isCompact(c)) ui.kbd(c, "Enter");
 
     {
         const add_btn = ui.div(c)
-            .w(40)
-            .h(40)
+            .w(if (responsive.isCompact(c)) 44 else 40)
+            .h(if (responsive.isCompact(c)) 44 else 40)
             .rounded(11)
             .bg(t.hex(t.accent))
             .gradient(t.hex(t.accent).mix(ui.Color.black, 0.12))
@@ -206,7 +213,7 @@ fn submit(state: *AppState) void {
     }
 }
 
-fn todoRow(state: *AppState, c: *ui.Context, t: colors.Palette, index: usize) void {
+fn todoRow(state: *AppState, c: *ui.Context, t: colors.Palette, index: usize, compact: bool) void {
     const item = &state.todos.items[index];
     ui.keyInt(c, item.id);
 
@@ -226,10 +233,10 @@ fn todoRow(state: *AppState, c: *ui.Context, t: colors.Palette, index: usize) vo
         .borderW(1)
         .hover(if (is_active_timer_task) t.soft(t.accent, if (t.dark) 0.14 else 0.09) else t.hex(t.bg_hover))
         .shadow(.{
-            .color = t.shadow(0.025, 0.30),
-            .blur = 10,
-            .y = 2,
-        });
+        .color = t.shadow(0.025, 0.30),
+        .blur = 10,
+        .y = 2,
+    });
     defer row.end();
 
     // Priority stripe
@@ -245,6 +252,15 @@ fn todoRow(state: *AppState, c: *ui.Context, t: colors.Palette, index: usize) vo
     // Checkbox
     {
         const cb = ui.div(c)
+            .w(if (compact) 44 else 23)
+            .h(if (compact) 44 else 23)
+            .itemsCenter()
+            .justifyCenter()
+            .hover(t.soft(t.accent_green, 0.24));
+        defer cb.end();
+        if (cb.clicked()) state.todos.toggleItem(index);
+
+        const box = ui.div(c)
             .w(23)
             .h(23)
             .rounded(7)
@@ -252,10 +268,8 @@ fn todoRow(state: *AppState, c: *ui.Context, t: colors.Palette, index: usize) vo
             .border(if (item.completed) t.hex(t.accent_green) else t.hex(t.border))
             .borderW(1.5)
             .itemsCenter()
-            .justifyCenter()
-            .hover(t.soft(t.accent_green, 0.24));
-        defer cb.end();
-        if (cb.clicked()) state.todos.toggleItem(index);
+            .justifyCenter();
+        defer box.end();
         if (item.completed) {
             ui.icon(c, "checkmark", .{ .size = 11, .weight = .bold, .color = t.hex(t.text_on_accent) });
         }

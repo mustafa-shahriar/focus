@@ -5,11 +5,13 @@ const AppState = @import("../app_state.zig").AppState;
 const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
 const timer_state = @import("../timer/timer_state.zig");
+const responsive = @import("../responsive.zig");
 
 const ring_size: f32 = 268;
 const ring_width: f32 = 11;
 
 pub fn view(state: *AppState, c: *ui.Context) void {
+    const compact = responsive.isCompact(c);
     const ps = state.phaseSettings();
     state.timer.tick(ps);
     c.frameIn(1);
@@ -32,7 +34,10 @@ pub fn view(state: *AppState, c: *ui.Context) void {
     const timer_color = t.timerText(phase);
     const progress = state.timer.progress();
 
-    const root = ui.div(c).column().sizeFull().px(30).pt(26).pb(24);
+    const root = if (compact)
+        ui.div(c).column().sizeFull().px(responsive.pagePadding(c)).pt(16).pb(16).gap(14).scrollY()
+    else
+        ui.div(c).column().sizeFull().px(responsive.pagePadding(c)).pt(26).pb(24);
     defer root.end();
 
     {
@@ -55,11 +60,14 @@ pub fn view(state: *AppState, c: *ui.Context) void {
     }
 
     {
-        const body = ui.div(c).row().wFull().grow().gap(18).itemsStretch();
+        const body = if (compact)
+            ui.div(c).column().wFull().gap(14).itemsStretch()
+        else
+            ui.div(c).row().wFull().grow().gap(18).itemsStretch();
         defer body.end();
 
-        timerHero(state, c, t, phase, accent, timer_color, progress, ps);
-        sideColumn(state, c, t, accent, ps);
+        timerHero(state, c, t, phase, accent, timer_color, progress, ps, compact);
+        sideColumn(state, c, t, accent, ps, compact);
     }
 }
 
@@ -72,27 +80,32 @@ fn timerHero(
     timer_color: u32,
     progress: f32,
     ps: timer_state.PhaseSettings,
+    compact: bool,
 ) void {
     const hero = ui.div(c)
         .column()
-        .grow()
-        .hFull()
         .rounded(26)
         .bg(t.hex(t.bg_card))
         .gradient(t.soft(accent, if (t.dark) 0.13 else 0.055))
         .border(t.hex(t.border_subtle))
-        .borderW(1)
-        .itemsCenter()
-        .justifyCenter()
-        .gap(14)
-        .p(22)
-        .shadow(.{
+        .borderW(1);
+    if (compact) {
+        _ = hero.wFull().itemsCenter().justifyCenter().gap(12).p(14);
+    } else {
+        _ = hero.grow().hFull().itemsCenter().justifyCenter().gap(14).p(22);
+    }
+    _ = hero.shadow(.{
         .color = t.soft(accent, if (t.dark) 0.10 else 0.13),
         .blur = 34,
         .y = 14,
         .spread = -6,
     });
     defer hero.end();
+    const dial_size = if (compact)
+        @min(ring_size, @max(180, c.size.w - 2 * responsive.pagePadding(c) - 28))
+    else
+        ring_size;
+    const dial_ring_width = if (dial_size < 236) 9 else ring_width;
 
     // Phase chip
     {
@@ -126,25 +139,25 @@ fn timerHero(
     // Dial + progress ring
     {
         const wrap = ui.div(c)
-            .w(ring_size)
-            .h(ring_size)
+            .w(dial_size)
+            .h(dial_size)
             .itemsCenter()
             .justifyCenter();
         defer wrap.end();
 
         const cv = ui.canvas(c, .{
             .absolute = true,
-            .width = .{ .px = ring_size },
-            .height = .{ .px = ring_size },
+            .width = .{ .px = dial_size },
+            .height = .{ .px = dial_size },
         });
-        drawRing(cv, t, accent, progress);
+        drawRing(cv, t, accent, progress, dial_size, dial_ring_width);
 
         const dial = ui.div(c).column().itemsCenter().gap(4);
         defer dial.end();
 
         const total_secs = state.timer.remaining_ms / 1000;
         ui.text(c, c.print("{d:0>2}:{d:0>2}", .{ total_secs / 60, total_secs % 60 }), .{
-            .size = 58,
+            .size = if (compact and dial_size < 236) 48 else if (compact) 54 else 58,
             .weight = .bold,
             .color = t.hex(timer_color),
             .tracking = -2.2,
@@ -264,14 +277,12 @@ fn sideColumn(
     t: colors.Palette,
     accent: u32,
     ps: timer_state.PhaseSettings,
+    compact: bool,
 ) void {
-    const side = ui.div(c)
-        .column()
-        .w(248)
-        .hFull()
-        .gap(12)
-        .scrollY()
-        .scrollbar(.{ .overlay = t.soft(t.text_muted, 0.35) });
+    const side = if (compact)
+        ui.div(c).column().wFull().gap(12)
+    else
+        ui.div(c).column().w(248).hFull().gap(12).scrollY().scrollbar(.{ .overlay = t.soft(t.text_muted, 0.35) });
     defer side.end();
 
     currentTask(state, c, t, accent);
@@ -517,20 +528,20 @@ fn metaPill(c: *ui.Context, t: colors.Palette, icon_name: []const u8, label: []c
     });
 }
 
-fn drawRing(cv: *ui.Canvas, t: colors.Palette, accent: u32, progress: f32) void {
+fn drawRing(cv: *ui.Canvas, t: colors.Palette, accent: u32, progress: f32, size: f32, width: f32) void {
     _ = t;
-    const center: ui.Point = .{ .x = ring_size / 2, .y = ring_size / 2 };
-    const radius = ring_size / 2 - ring_width - 4;
+    const center: ui.Point = .{ .x = size / 2, .y = size / 2 };
+    const radius = size / 2 - width - 4;
 
     const track_color = ui.Color.hex(@truncate(accent)).alpha(0.12);
-    cv.ring(center, radius, ring_width, track_color);
+    cv.ring(center, radius, width, track_color);
 
     const p = @max(0, @min(1, progress));
     if (p <= 0.001) return;
 
     const accent_color = ui.Color.hex(@truncate(accent));
     if (p >= 0.999) {
-        cv.ring(center, radius, ring_width, accent_color);
+        cv.ring(center, radius, width, accent_color);
         return;
     }
 
@@ -546,9 +557,9 @@ fn drawRing(cv: *ui.Canvas, t: colors.Palette, accent: u32, progress: f32) void 
         };
     }
 
-    cv.polyline(points[0 .. steps + 1], .{ .width = ring_width, .color = accent_color });
+    cv.polyline(points[0 .. steps + 1], .{ .width = width, .color = accent_color });
 
     const tip = points[steps];
-    cv.circle(tip, ring_width + 2, accent_color.alpha(0.16));
-    cv.circle(tip, ring_width * 0.55, accent_color);
+    cv.circle(tip, width + 2, accent_color.alpha(0.16));
+    cv.circle(tip, width * 0.55, accent_color);
 }

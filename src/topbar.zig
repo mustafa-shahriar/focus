@@ -8,6 +8,7 @@ const colors = @import("theme/colors.zig");
 const shell = @import("shell.zig");
 
 pub const height: f32 = 50;
+const mobile_nav_height: f32 = 64;
 
 const NavItem = struct {
     page: AppState.Page,
@@ -22,7 +23,7 @@ const nav_items = [_]NavItem{
     .{ .page = .settings, .label = "Settings", .icon = "gearshape" },
 };
 
-pub fn view(state: *AppState, c: *ui.Context) void {
+pub fn view(state: *AppState, c: *ui.Context, compact: bool) void {
     const t = colors.palette(state.settings.dark_mode);
 
     const bar = ui.div(c)
@@ -35,21 +36,62 @@ pub fn view(state: *AppState, c: *ui.Context) void {
 
     {
         const row = ui.div(c).row().wFull().grow().pl(10).gap(5).itemsCenter();
-        // The empty stretches of the bar move the window, as a title bar does.
-        row.c.node(row.index).style.window_drag = true;
+        if (!compact) row.c.node(row.index).style.window_drag = true;
         defer row.end();
 
         brand(c, t);
-        verticalRule(c, t);
-        tabs(state, c, t);
-        ui.spacer(c);
-        themeButton(state, c, t);
-        windowControls(c, t);
+        if (compact) {
+            ui.spacer(c);
+            themeButton(state, c, t, true);
+        } else {
+            verticalRule(c, t);
+            tabs(state, c, t);
+            ui.spacer(c);
+            //themeButton(state, c, t);
+            windowControls(c, t);
+        }
     }
 
     {
         const edge = ui.div(c).wFull().h(1).bg(t.hex(t.sidebar_line));
         defer edge.end();
+    }
+}
+
+pub fn mobileNavigation(state: *AppState, c: *ui.Context) void {
+    const t = colors.palette(state.settings.dark_mode);
+    const bar = ui.div(c)
+        .row()
+        .wFull()
+        .h(mobile_nav_height)
+        .itemsStretch()
+        .bg(t.hex(t.bg_sidebar))
+        .border(t.hex(t.sidebar_line));
+    defer bar.end();
+
+    for (nav_items) |item| {
+        const active = state.current_page == item.page;
+        const tab = ui.div(c)
+            .column()
+            .grow()
+            .hFull()
+            .gap(4)
+            .itemsCenter()
+            .justifyCenter()
+            .hover(ui.Color.white.alpha(0.08));
+        defer tab.end();
+        if (tab.clicked()) state.current_page = item.page;
+
+        ui.icon(c, item.icon, .{
+            .size = 19,
+            .weight = if (active) .semibold else .regular,
+            .color = if (active) t.hex(t.accent) else t.hex(t.sidebar_muted),
+        });
+        ui.text(c, item.label, .{
+            .size = 10,
+            .weight = if (active) .semibold else .medium,
+            .color = if (active) t.hex(t.sidebar_text) else t.hex(t.sidebar_muted),
+        });
     }
 }
 
@@ -119,12 +161,13 @@ fn tabs(state: *AppState, c: *ui.Context, t: colors.Palette) void {
             .color = if (active) t.hex(t.sidebar_text) else t.hex(t.sidebar_muted),
         });
     }
+    themeButton(state, c, t, false);
 }
 
-fn themeButton(state: *AppState, c: *ui.Context, t: colors.Palette) void {
+fn themeButton(state: *AppState, c: *ui.Context, t: colors.Palette, compact: bool) void {
     const btn = ui.div(c)
-        .w(30)
-        .h(30)
+        .w(if (compact) 44 else 30)
+        .h(if (compact) 44 else 30)
         .rounded(8)
         .itemsCenter()
         .justifyCenter()

@@ -4,6 +4,7 @@ const nanoui = @import("nanoui");
 const ui = nanoui.ui;
 const colors = @import("colors.zig");
 const todo_state = @import("../todo/todo_state.zig");
+const responsive = @import("../responsive.zig");
 
 /// A page header. Returns the row so the caller can add actions on the right.
 pub fn pageHeader(
@@ -14,7 +15,11 @@ pub fn pageHeader(
     title: []const u8,
     subtitle: []const u8,
 ) ui.Div {
-    const row = ui.div(c).row().wFull().itemsEnd().justifyBetween().pb(20);
+    const compact = responsive.isCompact(c);
+    const row = if (compact)
+        ui.div(c).column().wFull().gap(4).pb(14)
+    else
+        ui.div(c).row().wFull().itemsEnd().justifyBetween().pb(20);
     {
         const col = ui.div(c).column().gap(4);
         defer col.end();
@@ -25,14 +30,15 @@ pub fn pageHeader(
             .tracking = 1.6,
         });
         ui.text(c, title, .{
-            .size = 28,
+            .size = if (compact) 24 else 28,
             .weight = .bold,
             .color = t.hex(t.text_primary),
             .tracking = -0.4,
         });
         ui.text(c, subtitle, .{
-            .size = 13,
+            .size = if (compact) 12 else 13,
             .color = t.hex(t.text_muted),
+            .wrap = compact,
         });
     }
     return row;
@@ -51,11 +57,11 @@ pub fn panel(c: *ui.Context, t: colors.Palette) ui.Div {
         .borderW(1)
         .gap(10)
         .shadow(.{
-            .color = t.shadow(0.05, 0.5),
-            .blur = 24,
-            .y = 8,
-            .spread = -4,
-        });
+        .color = t.shadow(0.05, 0.5),
+        .blur = 24,
+        .y = 8,
+        .spread = -4,
+    });
 }
 
 /// A nested, quieter surface inside a panel.
@@ -97,10 +103,10 @@ pub fn iconButton(c: *ui.Context, t: colors.Palette) ui.Div {
         .justifyCenter()
         .hover(t.hex(t.bg_hover))
         .shadow(.{
-            .color = t.shadow(0.04, 0.4),
-            .blur = 10,
-            .y = 3,
-        });
+        .color = t.shadow(0.04, 0.4),
+        .blur = 10,
+        .y = 3,
+    });
 }
 
 /// A small icon inside a tinted rounded square (decorative).
@@ -159,22 +165,23 @@ pub fn statCard(
     label: []const u8,
     value: []const u8,
     hint: []const u8,
+    compact: bool,
 ) void {
     const card = ui.div(c)
         .column()
         .grow()
-        .p(16)
+        .p(if (compact) 12 else 16)
         .rounded(18)
         .bg(t.hex(t.bg_card))
         .gap(10)
         .border(t.hex(t.border_subtle))
         .borderW(1)
         .shadow(.{
-            .color = t.shadow(0.045, 0.45),
-            .blur = 18,
-            .y = 6,
-            .spread = -4,
-        });
+        .color = t.shadow(0.045, 0.45),
+        .blur = 18,
+        .y = 6,
+        .spread = -4,
+    });
     defer card.end();
 
     {
@@ -186,7 +193,7 @@ pub fn statCard(
     }
 
     ui.text(c, value, .{
-        .size = 26,
+        .size = if (compact) 22 else 26,
         .weight = .bold,
         .color = t.hex(t.text_primary),
         .tracking = -0.5,

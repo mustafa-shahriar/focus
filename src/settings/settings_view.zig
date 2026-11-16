@@ -4,6 +4,7 @@ const ui = nanoui.ui;
 const AppState = @import("../app_state.zig").AppState;
 const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
+const responsive = @import("../responsive.zig");
 
 /// The typed text of each duration field, kept across frames so the caret and
 /// selection survive. The values themselves still live in `SettingsState`.
@@ -11,8 +12,14 @@ var duration_bufs: [4]ui.TextBuffer = .{ .{}, .{}, .{}, .{} };
 
 pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
+    const compact = responsive.isCompact(c);
 
-    const root = ui.div(c).column().sizeFull().px(30).pt(26).pb(24);
+    const root = ui.div(c)
+        .column()
+        .sizeFull()
+        .px(responsive.pagePadding(c))
+        .pt(if (compact) 16 else 26)
+        .pb(if (compact) 16 else 24);
     defer root.end();
 
     {
@@ -32,13 +39,19 @@ pub fn view(state: *AppState, c: *ui.Context) void {
         defer scroll.end();
 
         {
-            const row = ui.div(c).row().wFull().gap(14).itemsStretch();
+            const row = if (compact)
+                ui.div(c).column().wFull().gap(12).itemsStretch()
+            else
+                ui.div(c).row().wFull().gap(14).itemsStretch();
             defer row.end();
 
             durationsCard(state, c, t);
 
             {
-                const right = ui.div(c).column().w(274).gap(14);
+                const right = if (compact)
+                    ui.div(c).column().wFull().gap(12)
+                else
+                    ui.div(c).column().w(274).gap(14);
                 defer right.end();
                 automationCard(state, c, t);
                 appearanceCard(state, c, t);
@@ -94,7 +107,7 @@ fn durationRow(
     defer row.end();
 
     {
-        const col = ui.div(c).column().gap(1);
+        const col = ui.div(c).column().grow().gap(1);
         defer col.end();
         ui.text(c, label, .{
             .size = 13,
@@ -344,10 +357,10 @@ fn aboutCard(c: *ui.Context, t: colors.Palette) void {
         .border(t.hex(t.border_subtle))
         .borderW(1)
         .shadow(.{
-            .color = t.shadow(0.035, 0.4),
-            .blur = 16,
-            .y = 4,
-        });
+        .color = t.shadow(0.035, 0.4),
+        .blur = 16,
+        .y = 4,
+    });
     defer card.end();
 
     {
