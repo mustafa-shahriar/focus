@@ -4,6 +4,7 @@
 # Add -Install to install the APK on the connected device or emulator.
 param(
     [string]$Target = "aarch64-linux-android",
+    [string]$Optimize = "ReleaseSafe",
     [switch]$Install
 )
 $ErrorActionPreference = 'Stop'
@@ -38,7 +39,7 @@ try {
     Write-Output "NDK: $env:ANDROID_NDK_HOME"
     Write-Output "Java: $env:JAVA_HOME"
 
-    zig build apk "-Dtarget=$Target"
+    zig build apk "-Dtarget=$Target" "-Doptimize=$Optimize"
     if ($LASTEXITCODE -ne 0) { throw "zig build failed ($LASTEXITCODE)" }
 
     $apk = Join-Path $root 'zig-out\android\focus.apk'
