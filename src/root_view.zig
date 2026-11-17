@@ -7,6 +7,7 @@ const timerView = @import("timer/timer_view.zig").view;
 const todoView = @import("todo/todo_view.zig").view;
 const statsView = @import("stats/stats_view.zig").view;
 const settingsView = @import("settings/settings_view.zig").view;
+const platform = @import("platform.zig");
 const responsive = @import("responsive.zig");
 
 /// Top-level view — the app's title bar over the routed page.
@@ -14,7 +15,8 @@ pub fn view(state: *AppState, c: *ui.Context) void {
     const t = colors.palette(state.settings.dark_mode);
     const compact = responsive.isCompact(c);
     c.theme = colors.nanouiTheme(state.settings.dark_mode);
-    c.title_bar_height = if (compact) 0 else topbar.height;
+    // Android's window has no caption of ours to reserve.
+    c.title_bar_height = if (platform.is_android) 0 else topbar.height;
 
     const root = ui.div(c).column().sizeFull().bg(t.hex(t.bg_primary));
     defer root.end();

@@ -1,6 +1,8 @@
 # Pomodoro Focus
 
-A desktop Pomodoro timer and task list built with Zig and [nanoui](https://github.com/justrach/nanoui). It includes configurable focus and break sessions, task tracking, session statistics, and light/dark themes.
+A Pomodoro timer and task list built with Zig and [nanoui](https://github.com/justrach/nanoui). It runs on the desktop (Windows and Linux) and on Android, and includes configurable focus and break sessions, task tracking, session statistics, and light/dark themes.
+
+The layout adapts to the window: below 680 logical units of width the app switches to a compact mobile layout with a top header, a bottom navigation bar, stacked pages and larger touch targets. That same layout serves phones, small tablets, and narrow desktop windows.
 
 ## Requirements
 
@@ -65,4 +67,7 @@ zig build test
 - `src/stats/` — session statistics
 - `src/settings/` — timer and appearance settings
 - `src/theme/` — app colors and shared UI components
-- `build.zig` — Zig build, run, and test steps
+- `src/responsive.zig` — the compact/desktop breakpoint and page padding
+- `src/platform.zig` — which platform the build targets (desktop chrome vs Android)
+- `assets/icon.png` — the Android launcher icon (`tools/android/make-icon.ps1` redraws it)
+- `build.zig` — Zig build, run, test, and APK steps

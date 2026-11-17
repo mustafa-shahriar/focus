@@ -17,19 +17,14 @@ pub fn main(init: std.process.Init) !void {
         .title = "Pomodoro Focus",
         .width = 980,
         .height = 680,
-        .min_width = 760,
-        .min_height = 600,
+        .min_width = 380,
+        .min_height = 480,
         .title_bar = .hidden,
         .theme = colors.nanouiTheme(state.settings.dark_mode),
         .content = .{ .view = .init(&state, rootView) },
     });
     shell.window = window;
     defer shell.window = null;
-
-    {
-        const cs = window.contentSize();
-        std.debug.print("DBG content size {d}x{d}\n", .{ cs[0], cs[1] });
-    }
 
     try app.run();
 }

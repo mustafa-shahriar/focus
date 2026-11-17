@@ -33,6 +33,7 @@ pub fn build(b: *std.Build) void {
             .id = "com.example.pomodorofocus",
             .version = @import("build.zig.zon").version,
             .target_api = 34,
+            .icon = b.path("assets/icon.png"),
             .permissions = &.{},
         };
         const apk = android.apk(b, lib, apk_options);

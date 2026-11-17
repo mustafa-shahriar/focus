@@ -1,10 +1,10 @@
 /// The app's own title bar: the brand, the page tabs and the window controls,
 /// drawn in the band Windows otherwise keeps for its caption.
 const nanoui = @import("nanoui");
-const std = @import("std");
 const ui = nanoui.ui;
 const AppState = @import("app_state.zig").AppState;
 const colors = @import("theme/colors.zig");
+const platform = @import("platform.zig");
 const shell = @import("shell.zig");
 
 pub const height: f32 = 50;
@@ -36,7 +36,10 @@ pub fn view(state: *AppState, c: *ui.Context, compact: bool) void {
 
     {
         const row = ui.div(c).row().wFull().grow().pl(10).gap(5).itemsCenter();
-        if (!compact) row.c.node(row.index).style.window_drag = true;
+        // Desktop windows draw their own bar: this row carries the window
+        // around. Android has no window chrome to drag.
+        if (!platform.is_android) row.c.node(row.index).style.window_drag = true;
+        if (compact) _ = row.pr(6);
         defer row.end();
 
         brand(c, t);
@@ -46,9 +49,9 @@ pub fn view(state: *AppState, c: *ui.Context, compact: bool) void {
         } else {
             verticalRule(c, t);
             tabs(state, c, t);
+            themeButton(state, c, t, false);
             ui.spacer(c);
-            //themeButton(state, c, t);
-            windowControls(c, t);
+            if (!platform.is_android) windowControls(c, t);
         }
     }
 
@@ -146,7 +149,6 @@ fn tabs(state: *AppState, c: *ui.Context, t: colors.Palette) void {
             .hover(if (active) ui.Color.white.alpha(0.15) else ui.Color.white.alpha(0.06));
         defer tab.end();
         if (tab.clicked()) {
-            std.debug.print("DBG tab {s}\n", .{item.label});
             state.current_page = item.page;
         }
 
@@ -161,7 +163,6 @@ fn tabs(state: *AppState, c: *ui.Context, t: colors.Palette) void {
             .color = if (active) t.hex(t.sidebar_text) else t.hex(t.sidebar_muted),
         });
     }
-    themeButton(state, c, t, false);
 }
 
 fn themeButton(state: *AppState, c: *ui.Context, t: colors.Palette, compact: bool) void {
@@ -190,7 +191,6 @@ fn windowControls(c: *ui.Context, t: colors.Palette) void {
         const btn = controlButton(c, t);
         defer btn.end();
         if (btn.clicked()) {
-            std.debug.print("DBG min\n", .{});
             if (shell.window) |w| w.minimize();
         }
         const glyph = ui.div(c).w(10).h(1.4).roundedFull().bg(t.hex(t.sidebar_text).alpha(0.8));
@@ -202,7 +202,6 @@ fn windowControls(c: *ui.Context, t: colors.Palette) void {
         const btn = controlButton(c, t);
         defer btn.end();
         if (btn.clicked()) {
-            std.debug.print("DBG max\n", .{});
             if (shell.window) |w| w.zoom();
         }
         const glyph = ui.div(c)

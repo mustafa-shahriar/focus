@@ -102,7 +102,7 @@ fn timerHero(
     });
     defer hero.end();
     const dial_size = if (compact)
-        @min(ring_size, @max(180, c.size.w - 2 * responsive.pagePadding(c) - 28))
+        @min(@as(f32, 232), @max(180, c.size.w - 2 * responsive.pagePadding(c) - 28))
     else
         ring_size;
     const dial_ring_width = if (dial_size < 236) 9 else ring_width;

@@ -5,6 +5,7 @@ const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
 const todo_state = @import("../todo/todo_state.zig");
 const Priority = todo_state.Priority;
+const platform = @import("../platform.zig");
 const responsive = @import("../responsive.zig");
 
 var input_buf: ui.TextBuffer = .{};
@@ -439,8 +440,8 @@ fn emptyState(c: *ui.Context, t: colors.Palette, title: []const u8, subtitle: []
 
     const hint = ui.div(c).row().gap(6).itemsCenter().pt(4);
     defer hint.end();
-    ui.kbd(c, "Enter");
-    ui.text(c, "adds a task", .{
+    if (!platform.is_android) ui.kbd(c, "Enter");
+    ui.text(c, if (platform.is_android) "Tap + to add a task" else "adds a task", .{
         .size = 10,
         .color = t.hex(t.text_muted),
     });
