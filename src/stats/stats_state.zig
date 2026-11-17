@@ -98,6 +98,12 @@ pub const StatsState = struct {
         return max;
     }
 
+    /// Moves the daily arrays and today's counters up to today. Called
+    /// after loading a saved state, which may be from an earlier day.
+    pub fn rollDay(self: *StatsState) void {
+        self.maybeShiftDay(@divTrunc(pt.timestamp(), (60 * 60 * 24)));
+    }
+
     fn maybeShiftDay(self: *StatsState, today: i64) void {
         if (self.today_day_index == 0) {
             self.today_day_index = today;

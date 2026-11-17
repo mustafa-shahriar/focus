@@ -9,6 +9,7 @@ const statsView = @import("stats/stats_view.zig").view;
 const settingsView = @import("settings/settings_view.zig").view;
 const platform = @import("platform.zig");
 const responsive = @import("responsive.zig");
+const storage = @import("storage.zig");
 
 /// Top-level view — the app's title bar over the routed page.
 pub fn view(state: *AppState, c: *ui.Context) void {
@@ -43,6 +44,9 @@ pub fn view(state: *AppState, c: *ui.Context) void {
     }
 
     if (compact) topbar.mobileNavigation(state, c);
+
+    // After the views ran: a pomodoro finished this frame is saved now.
+    storage.autosave();
 }
 
 /// A few very soft color clouds behind the content: depth without noise.
