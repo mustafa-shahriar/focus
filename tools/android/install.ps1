@@ -120,7 +120,14 @@ $yes | & $sdkmanager --sdk_root=$sdk @pkgs 2>&1 | ForEach-Object { Log "  $_" }
 [Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkDir, 'User')
 [Environment]::SetEnvironmentVariable('ANDROID_HOME', $sdk, 'User')
 [Environment]::SetEnvironmentVariable('ANDROID_NDK_HOME', (Join-Path $sdk "ndk\$ndk"), 'User')
+$jdkBin = Join-Path $jdkDir 'bin'
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$userPathEntries = @($userPath -split ';' | Where-Object {
+    $_ -and $_.TrimEnd('\') -ine $jdkBin.TrimEnd('\')
+})
+[Environment]::SetEnvironmentVariable('Path', (@($jdkBin) + $userPathEntries -join ';'), 'User')
 Log "JAVA_HOME=$jdkDir"
 Log "ANDROID_HOME=$sdk"
 Log "ANDROID_NDK_HOME=$(Join-Path $sdk "ndk\$ndk")"
+Log "JDK bin added to user PATH: $jdkBin"
 Log 'done'

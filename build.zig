@@ -35,6 +35,7 @@ pub fn build(b: *std.Build) void {
             .target_api = 34,
             .icon = b.path("assets/icon.png"),
             .permissions = &.{},
+            .keystore = releaseKeystore(b, android, optimize),
         };
         const apk = android.apk(b, lib, apk_options);
         const install_apk = b.addInstallFileWithDir(apk, .prefix, "android/focus.apk");
@@ -69,4 +70,34 @@ pub fn build(b: *std.Build) void {
         const test_step = b.step("test", "Run unit tests");
         test_step.dependOn(&run_unit_tests.step);
     }
+}
+
+fn releaseKeystore(
+    b: *std.Build,
+    android: type,
+    optimize: std.builtin.OptimizeMode,
+) ?android.Keystore {
+    if (optimize == .debug) return null;
+
+    const env = &b.graph.environ_map;
+    const path = env.get("FOCUS_ANDROID_KEYSTORE") orelse
+        std.process.fatal("Android release builds require FOCUS_ANDROID_KEYSTORE, FOCUS_ANDROID_KEY_ALIAS, and FOCUS_ANDROID_STORE_PASSWORD", .{});
+    const alias = env.get("FOCUS_ANDROID_KEY_ALIAS") orelse
+        std.process.fatal("Android release builds require FOCUS_ANDROID_KEYSTORE, FOCUS_ANDROID_KEY_ALIAS, and FOCUS_ANDROID_STORE_PASSWORD", .{});
+    const store_password = env.get("FOCUS_ANDROID_STORE_PASSWORD") orelse
+        std.process.fatal("Android release builds require FOCUS_ANDROID_KEYSTORE, FOCUS_ANDROID_KEY_ALIAS, and FOCUS_ANDROID_STORE_PASSWORD", .{});
+    const key_password = env.get("FOCUS_ANDROID_KEY_PASSWORD");
+    if (path.len == 0 or alias.len == 0 or store_password.len == 0) {
+        std.process.fatal("Android release signing environment variables must not be empty", .{});
+    }
+    if (key_password) |password| {
+        if (password.len == 0) std.process.fatal("FOCUS_ANDROID_KEY_PASSWORD must not be empty when set", .{});
+    }
+
+    return .{
+        .path = .{ .cwd_relative = path },
+        .alias = alias,
+        .password = "env:FOCUS_ANDROID_STORE_PASSWORD",
+        .key_password = if (key_password != null) "env:FOCUS_ANDROID_KEY_PASSWORD" else null,
+    };
 }

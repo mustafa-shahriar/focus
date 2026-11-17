@@ -14,7 +14,7 @@ The UI selects its compact layout below 680 logical units of width, with a mobil
 
 The build helper looks for the SDK in `ANDROID_HOME` or `ANDROID_SDK_ROOT`, and finds the NDK under the SDK unless `ANDROID_NDK_HOME` or `ANDROID_NDK_ROOT` is set.
 
-The app draws inside the system bars' safe area, so the status and navigation bars never cover it, and it has no title bar or window buttons of its own there.
+The Android window is edge-to-edge: the top inset is painted with a theme-appropriate background, while header controls and page/navigation content stay within the system-bars' safe area. The app has no title bar or window buttons of its own there.
 
 ### One-step setup on Windows
 
@@ -24,7 +24,7 @@ The app draws inside the system bars' safe area, so the status and navigation ba
 .\tools\android\install.ps1
 ```
 
-It downloads a JDK 21, the SDK command-line tools and then `platform-tools`, Android SDK Platform 34, the newest build-tools and the newest NDK into `%LOCALAPPDATA%\Android` (the SDK in `Sdk\`), accepts the SDK licenses, and records `JAVA_HOME`, `ANDROID_HOME` and `ANDROID_NDK_HOME` for your user. Open a new terminal afterwards so those variables are visible, or set them in the current one.
+It downloads a JDK 21, the SDK command-line tools and then `platform-tools`, Android SDK Platform 34, the newest build-tools and the newest NDK into `%LOCALAPPDATA%\Android` (the SDK in `Sdk\`), accepts the SDK licenses, records `JAVA_HOME`, `ANDROID_HOME` and `ANDROID_NDK_HOME` for your user, and adds the JDK's `bin` directory to your user `PATH` so `keytool` is available. Open a new terminal afterwards so the updated environment is visible.
 
 ### Set up the SDK path
 
@@ -46,43 +46,61 @@ export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/<installed-ndk-version>"
 
 Use the actual installed NDK directory name in place of `<installed-ndk-version>`. If these variables are not set, the build helper also searches the SDK's `ndk` directory for the newest installed NDK.
 
-## Build the APK
+## Debug build
 
-For a 64-bit ARM phone or tablet:
+The debug build is debuggable and uses the Android debug key (Android Studio's key when available, otherwise a generated key). This is the build to use for local development; it is not suitable for distribution.
+
+Build and install on an ARM device:
+
+```powershell
+.\tools\android\build.ps1 -Target aarch64-linux-android -Optimize Debug -Install
+```
+
+For an x86-64 emulator, use `-Target x86_64-linux-android`. To build without installing, omit `-Install`. The equivalent direct Zig command is:
 
 ```sh
-zig build apk -Dtarget=aarch64-linux-android
+zig build apk -Dtarget=aarch64-linux-android -Doptimize=Debug
 ```
 
-For an x86-64 emulator:
+The APK is written to `zig-out/android/focus.apk`. Install it manually with `adb install -r zig-out/android/focus.apk`. To inspect Android logs while running the app, use `adb logcat`.
 
-```sh
-zig build apk -Dtarget=x86_64-linux-android
+## Production release
+
+An optimized Android build must have a release keystore configured; it will fail rather than use the debug key. Keep the keystore backed up and outside the repository. Never commit it or its passwords. The Windows setup script above installs JDK 21, including `keytool`; after running it, open a new PowerShell window. Invoke `keytool` through `JAVA_HOME` so it does not need to be on `PATH`. Create the keystore once (do not repeat this for app updates):
+
+```powershell
+& "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -v `
+  -keystore "$env:USERPROFILE\pomodoro-focus-release.jks" `
+  -storetype JKS `
+  -alias pomodoro-focus `
+  -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-The APK is written to:
+Keytool prompts for a keystore password and certificate details. For each release build, set the keystore path, alias, and password in the environment. The password is read by `apksigner` from the environment, not embedded in the build command:
 
-```text
-zig-out/android/focus.apk
+```powershell
+$env:FOCUS_ANDROID_KEYSTORE = "$env:USERPROFILE\pomodoro-focus-release.jks"
+$env:FOCUS_ANDROID_KEY_ALIAS = "pomodoro-focus"
+$securePassword = Read-Host "Keystore password" -AsSecureString
+$passwordPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+try {
+    $env:FOCUS_ANDROID_STORE_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
+}
+
+zig build apk -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast
 ```
 
-`zig build -Dtarget=aarch64-linux-android` also builds and installs the APK into `zig-out/android/`.
+If the key password differs from the keystore password, also set `FOCUS_ANDROID_KEY_PASSWORD` in the environment. Use your CI secret manager to provide these environment variables in automated builds. Clear them from your shell when finished.
 
-## Install and launch
+Before distributing a release, replace the example application ID `com.example.pomodorofocus` in `build.zig` with your own permanent reverse-DNS ID. Increment the app version in `build.zig.zon` for each release. The resulting signed APK is `zig-out/android/focus.apk`. Verify its signature with:
 
-Connect a device with USB debugging enabled, or start an Android emulator, then run:
-
-```sh
-adb install -r zig-out/android/focus.apk
+```powershell
+& "$env:ANDROID_HOME\build-tools\<version>\apksigner.bat" verify --verbose zig-out/android/focus.apk
 ```
 
-Launch **Pomodoro Focus** from the device's app launcher.
-
-## Signing and app ID
-
-The build creates a debug-signed APK, using Android Studio's debug key when available or generating a debug key in Zig's cache. The current application ID is `com.example.pomodorofocus`; change it in `build.zig` to a unique reverse-DNS ID before distributing the app.
-
-Do not distribute the debug-signed APK as a release. Release distribution requires signing with your own protected release keystore.
+Replace `<version>` with the installed build-tools version directory. Preserve the same keystore for all future updates to the same application ID; Android will reject updates signed with a different key.
 
 ## Icon
 

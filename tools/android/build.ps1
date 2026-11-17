@@ -4,7 +4,7 @@
 # Add -Install to install the APK on the connected device or emulator.
 param(
     [string]$Target = "aarch64-linux-android",
-    [string]$Optimize = "ReleaseSafe",
+    [string]$Optimize = "Debug",
     [switch]$Install
 )
 $ErrorActionPreference = 'Stop'

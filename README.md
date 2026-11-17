@@ -32,9 +32,37 @@ zig build -Dtarget=x86_64-linux-gnu
 
 The executable is written to `zig-out/bin/` (`focus.exe` on Windows and `focus` on Linux).
 
+### Desktop release builds
+
+Build an optimized 64-bit Windows release:
+
+```sh
+zig build -Dtarget=x86_64-windows -Doptimize=ReleaseFast
+```
+
+Build an optimized 64-bit Linux release for glibc-based distributions:
+
+```sh
+zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseFast
+```
+
+Both commands can be run on Windows or Linux to cross-compile. The Windows executable is `zig-out/bin/focus.exe`; the Linux executable is `zig-out/bin/focus`. Linux users need GTK 3 or GTK 4 at runtime, and WebKitGTK for features that display web content. These commands produce the executable, not an installer or self-contained Linux bundle.
+
 ## Android
 
-The Android APK build requirements and commands are documented in [ANDROID.md](./ANDROID.md).
+Build and install a debuggable APK:
+
+```powershell
+.\tools\android\build.ps1 -Target aarch64-linux-android -Optimize Debug -Install
+```
+
+With release keystore environment variables configured as described in [ANDROID.md](./ANDROID.md#production-release), build a production APK with:
+
+```powershell
+zig build apk -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast
+```
+
+The APK is written to `zig-out/android/focus.apk`. Release builds require your own keystore; they never fall back to the debug key. See [ANDROID.md](./ANDROID.md) for SDK setup, signing, install, and debug details.
 
 ## Run
 

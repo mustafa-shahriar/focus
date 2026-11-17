@@ -24,6 +24,13 @@ pub fn view(state: *AppState, c: *ui.Context) void {
 
     topbar.view(state, c, compact);
 
+    const safe_area = c.safe_area;
+    c.safe_area.top = 0;
+    defer c.safe_area = safe_area;
+
+    const safe_content = ui.div(c).column().wFull().grow().safeArea();
+    defer safe_content.end();
+
     {
         const content = ui.div(c)
             .column()

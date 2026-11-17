@@ -25,6 +25,15 @@ const nav_items = [_]NavItem{
 
 pub fn view(state: *AppState, c: *ui.Context, compact: bool) void {
     const t = colors.palette(state.settings.dark_mode);
+    const safe = c.safe_area;
+
+    if (safe.top > 0) {
+        const status_area = ui.div(c)
+            .wFull()
+            .h(safe.top)
+            .bg(t.hex(if (t.dark) t.bg_sidebar else t.bg_primary));
+        defer status_area.end();
+    }
 
     const bar = ui.div(c)
         .column()
@@ -35,11 +44,18 @@ pub fn view(state: *AppState, c: *ui.Context, compact: bool) void {
     defer bar.end();
 
     {
-        const row = ui.div(c).row().wFull().grow().pl(10).gap(5).itemsCenter();
+        const row = ui.div(c)
+            .row()
+            .wFull()
+            .grow()
+            .pl(10 + safe.left)
+            .pr(safe.right)
+            .gap(5)
+            .itemsCenter();
         // Desktop windows draw their own bar: this row carries the window
         // around. Android has no window chrome to drag.
         if (!platform.is_android) row.c.node(row.index).style.window_drag = true;
-        if (compact) _ = row.pr(6);
+        if (compact) _ = row.pr(6 + safe.right);
         defer row.end();
 
         brand(c, t);

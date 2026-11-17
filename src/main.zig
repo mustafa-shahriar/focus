@@ -3,6 +3,7 @@ const nanoui = @import("nanoui");
 const AppState = @import("app_state.zig").AppState;
 const rootView = @import("root_view.zig").view;
 const colors = @import("theme/colors.zig");
+const platform = @import("platform.zig");
 const shell = @import("shell.zig");
 const storage = @import("storage.zig");
 
@@ -23,6 +24,7 @@ pub fn main(init: std.process.Init) !void {
         .height = 680,
         .min_width = 380,
         .min_height = 480,
+        .full_bleed = platform.is_android,
         .title_bar = .hidden,
         .theme = colors.nanouiTheme(state.settings.dark_mode),
         .on_close = .{ .ctx = @ptrCast(&state), .func = onClose },
