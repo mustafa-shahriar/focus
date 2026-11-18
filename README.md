@@ -88,13 +88,32 @@ Run the unit tests with:
 zig build test
 ```
 
+## Saved state
+
+Your tasks, statistics, settings, and the timer's place are kept between launches in one JSON file per user:
+
+| Platform | File |
+| --- | --- |
+| Windows | `%APPDATA%\Pomodoro Focus\focus-state.json` |
+| Linux | `$XDG_DATA_HOME/Pomodoro Focus/focus-state.json` (usually `~/.local/share/Pomodoro Focus/focus-state.json`) |
+| Android | the app's internal files directory, `.../files/Pomodoro Focus/focus-state.json` |
+
+The file is written to a temporary name and renamed into place, so an interrupted write leaves the previous state intact. Saves happen automatically when something changes, every 15 seconds while the timer runs, and when the window closes. A timer that was running when the app was closed comes back paused, at the time it had left.
+
+The file is small, human-readable JSON: because the data is at most a few hundred tasks and a thousand sessions, a JSON file is faster and more portable than a database, and it keeps the app free of extra dependencies on all three platforms. Deleting the file resets the app.
+
+## Focus mode
+
+The expand button in the timer card's bottom-right corner makes the card fill the window, hiding the page header and side panels for an undisturbed session. The `x` in the same corner brings the normal layout back, as does switching to another page.
+
 ## Project layout
 
-- `src/timer/` — Pomodoro timer state and view
-- `src/todo/` — task state and view
-- `src/stats/` — session statistics
-- `src/settings/` — timer and appearance settings
-- `src/theme/` — app colors and shared UI components
+- `src/timer/` - Pomodoro timer state and view
+- `src/todo/` - task state and view
+- `src/stats/` - session statistics
+- `src/settings/` - timer and appearance settings
+- `src/storage.zig` - saved state: reading and atomically writing the JSON file
+- `src/theme/` - app colors and shared UI components
 - `src/responsive.zig` — the compact/desktop breakpoint and page padding
 - `src/platform.zig` — which platform the build targets (desktop chrome vs Android)
 - `assets/icon.png` — the Android launcher icon (`tools/android/make-icon.ps1` redraws it)

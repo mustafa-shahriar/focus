@@ -8,6 +8,9 @@ const StatsState = @import("stats/stats_state.zig").StatsState;
 /// Views are pure functions of this struct.
 pub const AppState = struct {
     current_page: Page = .timer,
+    /// The timer card alone, filling the content area. Not kept between
+    /// launches: the app opens on its normal layout.
+    focus_mode: bool = false,
 
     timer: TimerState = .{},
     todos: TodoState = .{},

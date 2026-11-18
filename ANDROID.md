@@ -64,6 +64,10 @@ zig build apk -Dtarget=aarch64-linux-android -Doptimize=Debug
 
 The APK is written to `zig-out/android/focus.apk`. Install it manually with `adb install -r zig-out/android/focus.apk`. To inspect Android logs while running the app, use `adb logcat`.
 
+## Saved state on Android
+
+Tasks, statistics, settings, and the timer's place are saved inside the app's private storage: `.../files/Pomodoro Focus/focus-state.json` under the package's internal data directory. It survives app restarts and updates, needs no permissions, and is removed when the app is uninstalled. To start fresh, clear the app's storage in Android's app settings (or delete that file).
+
 ## Production release
 
 An optimized Android build must have a release keystore configured; it will fail rather than use the debug key. Keep the keystore backed up and outside the repository. Never commit it or its passwords. The Windows setup script above installs JDK 21, including `keytool`; after running it, open a new PowerShell window. Invoke `keytool` through `JAVA_HOME` so it does not need to be on `PATH`. Create the keystore once (do not repeat this for app updates):

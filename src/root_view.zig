@@ -42,6 +42,10 @@ pub fn view(state: *AppState, c: *ui.Context) void {
 
         ambient(c, t);
 
+        // The focus layout belongs to the timer page: leaving it restores
+        // the normal page.
+        if (state.current_page != .timer) state.focus_mode = false;
+
         switch (state.current_page) {
             .timer => timerView(state, c),
             .todos => todoView(state, c),

@@ -34,6 +34,14 @@ pub fn view(state: *AppState, c: *ui.Context) void {
     const timer_color = t.timerText(phase);
     const progress = state.timer.progress();
 
+    // Focus mode: the timer card alone, filling the window's content area.
+    if (state.focus_mode) {
+        const root = ui.div(c).column().sizeFull().p(if (compact) 10 else 16);
+        defer root.end();
+        timerHero(state, c, t, phase, accent, timer_color, progress, ps, compact, true);
+        return;
+    }
+
     const root = if (compact)
         ui.div(c).column().sizeFull().px(responsive.pagePadding(c)).pt(16).pb(16).gap(14).scrollY()
     else
@@ -66,7 +74,7 @@ pub fn view(state: *AppState, c: *ui.Context) void {
             ui.div(c).row().wFull().grow().gap(18).itemsStretch();
         defer body.end();
 
-        timerHero(state, c, t, phase, accent, timer_color, progress, ps, compact);
+        timerHero(state, c, t, phase, accent, timer_color, progress, ps, compact, false);
         sideColumn(state, c, t, accent, ps, compact);
     }
 }
@@ -81,6 +89,7 @@ fn timerHero(
     progress: f32,
     ps: timer_state.PhaseSettings,
     compact: bool,
+    focus: bool,
 ) void {
     const hero = ui.div(c)
         .column()
@@ -89,7 +98,9 @@ fn timerHero(
         .gradient(t.soft(accent, if (t.dark) 0.13 else 0.055))
         .border(t.hex(t.border_subtle))
         .borderW(1);
-    if (compact) {
+    if (focus) {
+        _ = hero.wFull().hFull().itemsCenter().justifyCenter().gap(16).p(if (compact) 16 else 24);
+    } else if (compact) {
         _ = hero.wFull().itemsCenter().justifyCenter().gap(12).p(14);
     } else {
         _ = hero.grow().hFull().itemsCenter().justifyCenter().gap(14).p(22);
@@ -101,7 +112,10 @@ fn timerHero(
         .spread = -6,
     });
     defer hero.end();
-    const dial_size = if (compact)
+    // In focus mode the dial follows the window, since the card has it all.
+    const dial_size = if (focus)
+        @max(190, @min(380, @min(c.size.h - 290, c.size.w - 120)))
+    else if (compact)
         @min(@as(f32, 232), @max(180, c.size.w - 2 * responsive.pagePadding(c) - 28))
     else
         ring_size;
@@ -157,7 +171,14 @@ fn timerHero(
 
         const total_secs = state.timer.remaining_ms / 1000;
         ui.text(c, c.print("{d:0>2}:{d:0>2}", .{ total_secs / 60, total_secs % 60 }), .{
-            .size = if (compact and dial_size < 236) 48 else if (compact) 54 else 58,
+            .size = if (focus)
+                @min(92, dial_size * 0.24)
+            else if (compact and dial_size < 236)
+                48
+            else if (compact)
+                54
+            else
+                58,
             .weight = .bold,
             .color = t.hex(timer_color),
             .tracking = -2.2,
@@ -171,7 +192,7 @@ fn timerHero(
             else => "Paused — take your time",
         };
         ui.text(c, status, .{
-            .size = 11.5,
+            .size = if (focus) 13 else 11.5,
             .weight = .medium,
             .color = t.hex(t.text_muted),
             .tracking = 0.2,
@@ -269,6 +290,45 @@ fn timerHero(
             .color = t.hex(t.text_muted),
         });
     }
+
+    focusToggle(state, c, t);
+}
+
+/// The fullscreen button in the card's bottom-right corner: the card alone
+/// fills the window while it is on, so nothing else asks for attention.
+fn focusToggle(state: *AppState, c: *ui.Context, t: colors.Palette) void {
+    const overlay = ui.div(c)
+        .absolute()
+        .wFull()
+        .hFull()
+        .column()
+        .justifyEnd();
+    defer overlay.end();
+
+    const row = ui.div(c).row().wFull().justifyEnd().itemsCenter();
+    defer row.end();
+
+    const button = ui.div(c)
+        .w(34)
+        .h(34)
+        .rounded(11)
+        .bg(t.hex(t.bg_card))
+        .border(t.hex(t.border))
+        .borderW(1)
+        .itemsCenter()
+        .justifyCenter()
+        .hover(t.hex(t.bg_hover))
+        .shadow(.{
+        .color = t.shadow(0.05, 0.4),
+        .blur = 10,
+        .y = 3,
+    });
+    defer button.end();
+    if (button.clicked()) state.focus_mode = !state.focus_mode;
+    ui.icon(c, if (state.focus_mode) "xmark" else "arrow.up.left.and.arrow.down.right", .{
+        .size = 12,
+        .color = t.hex(t.text_muted),
+    });
 }
 
 fn sideColumn(
