@@ -115,7 +115,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          # Explicit: older defaults asked for the legacy `tools` package,
+          # which Google removed from the SDK repository, failing the job.
+          packages: platform-tools
       - uses: mlugg/setup-zig@v2
         with:
           version: ${{ env.ZIG_VERSION }}
