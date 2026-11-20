@@ -205,12 +205,11 @@ pub fn install() void {
 }
 
 fn desktopAsset() []const u8 {
+    // Only these builds are published: Windows x86_64, Linux x86_64, and
+    // Android arm64. There is no 32-bit, macOS, or Linux ARM release.
     return switch (builtin.os.tag) {
         .windows => "focus-windows-x86_64.zip",
-        .linux => switch (builtin.cpu.arch) {
-            .aarch64 => "focus-linux-aarch64.tar.gz",
-            else => "focus-linux-x86_64.tar.gz",
-        },
+        .linux => "focus-linux-x86_64.tar.gz",
         else => "",
     };
 }

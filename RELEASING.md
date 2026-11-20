@@ -15,6 +15,10 @@ containing:
 The names are fixed: the app asks for them by name, and the updaters look
 for `manifest.json` under `releases/latest/download`. Don't rename them.
 
+These are the only targets built: 64-bit Windows, 64-bit Linux, and
+arm64 Android. There are no 32-bit, macOS, or Linux ARM releases, and the
+updaters only ever look for the three files above.
+
 ```json
 {
   "version": "0.2.0",
