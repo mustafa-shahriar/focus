@@ -6,8 +6,12 @@ const colors = @import("theme/colors.zig");
 const platform = @import("platform.zig");
 const shell = @import("shell.zig");
 const storage = @import("storage.zig");
+const updates = @import("updates.zig");
 
 pub fn main(init: std.process.Init) !void {
+    // A staged update is run with `--version` before it is installed.
+    if (try printVersionIfAsked(init)) return;
+
     const app = try nanoui.App.create(init, .{
         .name = "Pomodoro Focus",
     });
@@ -33,7 +37,23 @@ pub fn main(init: std.process.Init) !void {
     shell.window = window;
     defer shell.window = null;
 
+    updates.start(init, app);
+    defer updates.stop();
+
     try app.run();
+}
+
+/// Prints the version and returns true when `--version` (or `-v`) is the
+/// first argument: the desktop updater runs a downloaded program with it
+/// to check that it is the release it claims to be.
+fn printVersionIfAsked(init: std.process.Init) !bool {
+    var args = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.gpa);
+    defer args.deinit();
+    _ = args.next(); // the program's own name
+    const first = args.next() orelse return false;
+    if (!std.mem.eql(u8, first, "--version") and !std.mem.eql(u8, first, "-v")) return false;
+    try std.Io.File.stdout().writeStreamingAll(init.io, "Pomodoro Focus " ++ updates.version ++ "\n");
+    return true;
 }
 
 /// Write the latest state on the way out.
@@ -46,6 +66,7 @@ fn onClose(_: *anyopaque, _: *nanoui.Window) void {
 test {
     _ = @import("app_state.zig");
     _ = @import("storage.zig");
+    _ = @import("updates.zig");
     _ = @import("todo/todo_state.zig");
     _ = @import("timer/timer_state.zig");
     _ = @import("stats/stats_state.zig");

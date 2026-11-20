@@ -12,12 +12,22 @@ pub fn build(b: *std.Build) void {
 
     const nanoui_mod = nanoui_dep.module("nanoui");
 
+    const version = @import("build.zig.zon").version;
+    // `build_options.self_update` keeps the desktop updater out of debug
+    // builds: a development executable must not replace itself with a
+    // release.
+    const options = b.addOptions();
+    options.addOption([]const u8, "version", version);
+    options.addOption(bool, "self_update", optimize != .debug);
+    const options_mod = options.createModule();
+
     const root_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
             .{ .name = "nanoui", .module = nanoui_mod },
+            .{ .name = "build_options", .module = options_mod },
         },
     });
 
@@ -30,11 +40,15 @@ pub fn build(b: *std.Build) void {
         });
         const apk_options: android.Options = .{
             .name = "Pomodoro Focus",
-            .id = "com.example.pomodorofocus",
-            .version = @import("build.zig.zon").version,
+            // Permanent: Android only updates an installed app when the
+            // package id and signing key stay the same.
+            .id = "io.github.mustafashahriar.pomodorofocus",
+            .version = version,
+            .version_code = versionCode(version),
             .target_api = 34,
             .icon = b.path("assets/icon.png"),
-            .permissions = &.{},
+            // nanoui.http, which the update check uses.
+            .permissions = &.{"android.permission.INTERNET"},
             .keystore = releaseKeystore(b, android, optimize),
         };
         const apk = android.apk(b, lib, apk_options);
@@ -63,6 +77,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "nanoui", .module = nanoui_mod },
+                .{ .name = "build_options", .module = options_mod },
             },
         });
         const unit_tests = b.addTest(.{ .root_module = test_mod });
@@ -86,13 +101,15 @@ fn releaseKeystore(
         std.process.fatal("Android release builds require FOCUS_ANDROID_KEYSTORE, FOCUS_ANDROID_KEY_ALIAS, and FOCUS_ANDROID_STORE_PASSWORD", .{});
     const store_password = env.get("FOCUS_ANDROID_STORE_PASSWORD") orelse
         std.process.fatal("Android release builds require FOCUS_ANDROID_KEYSTORE, FOCUS_ANDROID_KEY_ALIAS, and FOCUS_ANDROID_STORE_PASSWORD", .{});
-    const key_password = env.get("FOCUS_ANDROID_KEY_PASSWORD");
     if (path.len == 0 or alias.len == 0 or store_password.len == 0) {
         std.process.fatal("Android release signing environment variables must not be empty", .{});
     }
-    if (key_password) |password| {
-        if (password.len == 0) std.process.fatal("FOCUS_ANDROID_KEY_PASSWORD must not be empty when set", .{});
-    }
+    // Empty means the key shares the store's password.
+    const key_password = blk: {
+        const p = env.get("FOCUS_ANDROID_KEY_PASSWORD") orelse break :blk null;
+        if (p.len == 0) break :blk null;
+        break :blk p;
+    };
 
     return .{
         .path = .{ .cwd_relative = path },
@@ -100,4 +117,14 @@ fn releaseKeystore(
         .password = "env:FOCUS_ANDROID_STORE_PASSWORD",
         .key_password = if (key_password != null) "env:FOCUS_ANDROID_KEY_PASSWORD" else null,
     };
+}
+
+/// Android's `versionCode` from the dotted version: each release's must be
+/// higher than the one before (0.1.10 > 0.1.9).
+fn versionCode(version: []const u8) u32 {
+    var parts = std.mem.splitScalar(u8, version, '.');
+    const major = std.fmt.parseInt(u32, parts.next() orelse "0", 10) catch 0;
+    const minor = std.fmt.parseInt(u32, parts.next() orelse "0", 10) catch 0;
+    const patch = std.fmt.parseInt(u32, parts.next() orelse "0", 10) catch 0;
+    return major * 1_000_000 + minor * 1_000 + patch;
 }

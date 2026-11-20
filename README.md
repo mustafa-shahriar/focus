@@ -106,6 +106,17 @@ The file is small, human-readable JSON: because the data is at most a few hundre
 
 The expand button in the timer card's bottom-right corner makes the card fill the window, hiding the page header and side panels for an undisturbed session. The `x` in the same corner brings the normal layout back, as does switching to another page.
 
+## Releases and updates
+
+Releases are published by [`.github/workflows/release.yml`](./.github/workflows/release.yml) from a tag such as `v0.2.0`. Each release carries the Windows zip, the Linux tarball, the signed Android APK, and a `manifest.json` with the version and each file's sha256. See [RELEASING.md](./RELEASING.md) for the one-time signing secrets and the release steps.
+
+Settings → **Updates** checks GitHub for a newer release:
+
+- **Windows and Linux:** a release build installed in a folder the app can write to downloads and verifies the new version in the background. **Update and restart** installs it and starts it; if you quit with an update waiting, it is installed for the next launch. Builds made with `zig build` (debug builds) don't replace themselves.
+- **Android:** **Get update** opens the APK download; the browser downloads it and Android's own installer updates the app. This needs the same signing key and a higher `versionCode`, both of which the release workflow handles.
+
+The app's version comes from `.version` in `build.zig.zon`, and `focus --version` prints it.
+
 ## Project layout
 
 - `src/timer/` - Pomodoro timer state and view
@@ -113,8 +124,10 @@ The expand button in the timer card's bottom-right corner makes the card fill th
 - `src/stats/` - session statistics
 - `src/settings/` - timer and appearance settings
 - `src/storage.zig` - saved state: reading and atomically writing the JSON file
+- `src/updates.zig` - GitHub release checks and one-click updates
 - `src/theme/` - app colors and shared UI components
 - `src/responsive.zig` — the compact/desktop breakpoint and page padding
 - `src/platform.zig` — which platform the build targets (desktop chrome vs Android)
+- `.github/workflows/release.yml` — builds and publishes a tagged release
 - `assets/icon.png` — the Android launcher icon (`tools/android/make-icon.ps1` redraws it)
 - `build.zig` — Zig build, run, test, and APK steps

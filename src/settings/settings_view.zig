@@ -5,6 +5,7 @@ const AppState = @import("../app_state.zig").AppState;
 const colors = @import("../theme/colors.zig");
 const kit = @import("../theme/kit.zig");
 const responsive = @import("../responsive.zig");
+const updates = @import("../updates.zig");
 
 /// The typed text of each duration field, kept across frames so the caret and
 /// selection survive. The values themselves still live in `SettingsState`.
@@ -58,8 +59,97 @@ pub fn view(state: *AppState, c: *ui.Context) void {
             }
         }
 
+        updatesCard(c, t, compact);
         aboutCard(c, t);
     }
+}
+
+fn updatesCard(c: *ui.Context, t: colors.Palette, compact: bool) void {
+    const card = kit.panel(c, t);
+    defer card.end();
+
+    {
+        const top = ui.div(c).row().wFull().itemsCenter().justifyBetween();
+        defer top.end();
+        kit.sectionLabel(c, t, "UPDATES");
+        const current = kit.pill(c, c.print("v{s}", .{updates.version}), t.hex(t.text_muted));
+        defer current.end();
+    }
+
+    {
+        const row = if (compact)
+            ui.div(c).column().wFull().gap(10).itemsStretch()
+        else
+            ui.div(c).row().wFull().gap(12).itemsCenter().justifyBetween();
+        defer row.end();
+
+        {
+            const words = ui.div(c).column().grow().gap(2);
+            defer words.end();
+            ui.text(c, "Stay on the latest release", .{
+                .size = 13,
+                .weight = .medium,
+                .color = t.hex(t.text_primary),
+            });
+            ui.text(c, updates.detail(), .{
+                .size = 10,
+                .color = t.hex(t.text_muted),
+                .wrap = true,
+            });
+        }
+
+        const waiting = updates.availableVersion() != null;
+        const label = if (waiting) updates.installLabel() else "Check for updates";
+        const icon_name = if (waiting) "arrow.up" else "arrow.clockwise";
+        const enabled = if (waiting) true else updates.canCheck();
+        if (updateButton(c, t, label, icon_name, waiting, enabled, compact)) {
+            if (waiting) updates.install() else updates.checkNow();
+        }
+    }
+
+    ui.text(c, "Your tasks, statistics and settings are kept across updates.", .{
+        .size = 9.5,
+        .color = t.hex(t.text_muted),
+        .wrap = true,
+    });
+}
+
+fn updateButton(
+    c: *ui.Context,
+    t: colors.Palette,
+    label: []const u8,
+    icon_name: []const u8,
+    primary: bool,
+    enabled: bool,
+    full_width: bool,
+) bool {
+    const on = primary and enabled;
+    var button = ui.div(c)
+        .row()
+        .h(36)
+        .px(14)
+        .rounded(11)
+        .gap(7)
+        .itemsCenter()
+        .justifyCenter()
+        .bg(if (on) t.hex(t.accent) else t.hex(t.bg_secondary))
+        .border(if (on) t.hex(t.accent) else t.hex(t.border_subtle))
+        .borderW(1);
+    if (full_width) button = button.wFull();
+    if (enabled) button = button.hover(if (on) t.hex(t.accent).mix(ui.Color.white, 0.12) else t.hex(t.bg_hover));
+    defer button.end();
+
+    const clicked = enabled and button.clicked();
+    ui.icon(c, icon_name, .{
+        .size = 11,
+        .color = if (on) t.hex(t.text_on_accent) else t.hex(t.text_muted),
+    });
+    ui.text(c, label, .{
+        .size = 12,
+        .weight = .semibold,
+        .color = if (on) t.hex(t.text_on_accent) else t.hex(if (enabled) t.text_secondary else t.text_muted),
+    });
+    return clicked;
 }
 
 fn durationsCard(state: *AppState, c: *ui.Context, t: colors.Palette) void {
@@ -394,6 +484,6 @@ fn aboutCard(c: *ui.Context, t: colors.Palette) void {
         });
     }
 
-    const version = kit.pill(c, "v0.1.0", t.hex(t.text_muted));
+    const version = kit.pill(c, c.print("v{s}", .{updates.version}), t.hex(t.text_muted));
     defer version.end();
 }

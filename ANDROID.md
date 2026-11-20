@@ -70,6 +70,8 @@ Tasks, statistics, settings, and the timer's place are saved inside the app's pr
 
 ## Production release
 
+The application ID is `io.github.mustafashahriar.pomodorofocus`, set in `build.zig`. Android only updates an installed app when the package ID and signing key stay the same, so treat both as permanent once a release has been installed: changing either makes the update install as a separate app (or be rejected).
+
 An optimized Android build must have a release keystore configured; it will fail rather than use the debug key. Keep the keystore backed up and outside the repository. Never commit it or its passwords. The Windows setup script above installs JDK 21, including `keytool`; after running it, open a new PowerShell window. Invoke `keytool` through `JAVA_HOME` so it does not need to be on `PATH`. Create the keystore once (do not repeat this for app updates):
 
 ```powershell
@@ -93,18 +95,20 @@ try {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
 }
 
-zig build apk -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast
+zig build apk -Dtarget=aarch64-linux-android -Doptimize=ReleaseSafe
 ```
 
-If the key password differs from the keystore password, also set `FOCUS_ANDROID_KEY_PASSWORD` in the environment. Use your CI secret manager to provide these environment variables in automated builds. Clear them from your shell when finished.
+If the key password differs from the keystore password, also set `FOCUS_ANDROID_KEY_PASSWORD` in the environment. (Leave it unset or empty when the key shares the keystore's password.) Use your CI secret manager to provide these environment variables in automated builds. Clear them from your shell when finished.
 
-Before distributing a release, replace the example application ID `com.example.pomodorofocus` in `build.zig` with your own permanent reverse-DNS ID. Increment the app version in `build.zig.zon` for each release. The resulting signed APK is `zig-out/android/focus.apk`. Verify its signature with:
+The APK's version and `versionCode` come from `.version` in `build.zig.zon`: the version is shown as-is, and the version code is computed as `major * 1_000_000 + minor * 1_000 + patch`, so bumping the version always produces a higher code (`0.1.10` > `0.1.9`). Bump `.version` for each release; nothing else needs editing for the update to be accepted. The resulting signed APK is `zig-out/android/focus.apk`. Verify its signature with:
 
 ```powershell
 & "$env:ANDROID_HOME\build-tools\<version>\apksigner.bat" verify --verbose zig-out/android/focus.apk
 ```
 
-Replace `<version>` with the installed build-tools version directory. Preserve the same keystore for all future updates to the same application ID; Android will reject updates signed with a different key.
+Replace `<version>` with the installed build-tools version directory. Preserve the same keystore for all future updates to the same application ID; Android rejects updates signed with a different key.
+
+The automated release builds in `.github/workflows/release.yml` sign with a keystore read from repository secrets. [RELEASING.md](./RELEASING.md) lists those secrets and the tag-and-push steps that publish a release.
 
 ## Icon
 

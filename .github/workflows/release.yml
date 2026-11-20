@@ -1,0 +1,197 @@
+# Publishes a GitHub release from a version tag.
+#
+#   git tag v0.2.0
+#   git push origin v0.2.0
+#
+# The tag must match `.version` in build.zig.zon. The release carries the
+# three builds below and the manifest.json the in-app updater reads:
+#
+#   focus-windows-x86_64.zip
+#   focus-linux-x86_64.tar.gz
+#   focus-android-arm64.apk
+#   manifest.json    {"version":"x.y.z","files":{...{"sha256":"..."}}}
+#
+# Do not rename those files: the app's updater asks for them by name.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  ZIG_VERSION: 0.17.0
+  ANDROID_NDK_VERSION: 28.2.13676358
+
+jobs:
+  version:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        name: Read build.zig.zon's version
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^[[:space:]]*\.version = "\([^"]*\)".*/\1/p' build.zig.zon)
+          if [ -z "$version" ]; then
+            echo "::error::No .version in build.zig.zon"
+            exit 1
+          fi
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match build.zig.zon ($version)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Test
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: zig build test
+
+  windows:
+    name: Windows
+    needs: [version, test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path zig-out\bin\focus.exe -DestinationPath dist\focus-windows-x86_64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/focus-windows-x86_64.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux
+    needs: [version, test]
+    # An older glibc than the newest runner's makes the binary run on more
+    # distributions.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Build
+        run: zig build "-Dtarget=x86_64-linux-gnu.2.28" -Doptimize=ReleaseSafe
+      - name: Package
+        run: |
+          mkdir -p dist
+          tar -czf dist/focus-linux-x86_64.tar.gz -C zig-out/bin focus
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/focus-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  android:
+    name: Android
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Install the SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;$ANDROID_NDK_VERSION"
+      - name: Write the release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Set the ANDROID_KEYSTORE_BASE64 secret (see RELEASING.md)"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+      - name: Build the signed APK
+        env:
+          FOCUS_ANDROID_KEYSTORE: ${{ runner.temp }}/release.jks
+          FOCUS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          FOCUS_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          FOCUS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          zig build apk -Dtarget=aarch64-linux-android -Doptimize=ReleaseSafe
+          mkdir -p dist
+          cp zig-out/android/focus.apk dist/focus-android-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/focus-android-arm64.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    needs: [version, windows, linux, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Write manifest.json
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+
+          dist = pathlib.Path("dist")
+          assets = [
+              "focus-windows-x86_64.zip",
+              "focus-linux-x86_64.tar.gz",
+              "focus-android-arm64.apk",
+          ]
+          files = {}
+          for name in assets:
+              path = dist / name
+              if not path.is_file():
+                  raise SystemExit(f"missing {path}")
+              files[name] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+          manifest = {"version": os.environ["VERSION"], "files": files}
+          (dist / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          print(json.dumps(manifest, indent=2))
+          PY
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Pomodoro Focus ${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/focus-windows-x86_64.zip
+            dist/focus-linux-x86_64.tar.gz
+            dist/focus-android-arm64.apk
+            dist/manifest.json
