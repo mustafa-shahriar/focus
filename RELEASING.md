@@ -158,3 +158,17 @@ The Linux build targets `x86_64-linux-gnu.2.28`, so it runs on glibc 2.28
 and newer (Debian 10, Ubuntu 18.10+, and later distributions). Raising
 that number makes the binary run on fewer systems; lowering it can fail
 to link against the runner's libraries.
+
+## CPU compatibility
+
+Both desktop builds target a generic 64-bit CPU, not the machine that
+compiled them. This matters: if `zig build` runs without `-Dtarget`, it
+compiles for the build machine's CPU. GitHub's Windows runners have
+AVX-512, so a native build there installs fine but dies instantly with
+an illegal instruction (`0xC000001D`) on desktops without AVX-512 — which
+is why the workflow passes `-Dtarget=x86_64-windows` explicitly.
+
+The same applies to any release built outside CI: build the Windows
+release with `zig build "-Dtarget=x86_64-windows" -Doptimize=ReleaseSafe`
+and the Linux release with
+`zig build "-Dtarget=x86_64-linux-gnu.2.28" -Doptimize=ReleaseSafe`.

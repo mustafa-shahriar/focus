@@ -1,6 +1,6 @@
 .{
     .name = .pomodoro_with_todo,
-    .version = "0.1.0",
+    .version = "0.1.1",
     .fingerprint = 0xa4f684522b78fe4a,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{

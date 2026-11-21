@@ -70,7 +70,10 @@ jobs:
         with:
           version: ${{ env.ZIG_VERSION }}
       - name: Build
-        run: zig build -Doptimize=ReleaseSafe
+        # An explicit target, not the runner's native CPU: GitHub's runners
+        # have AVX-512, and code built for them dies with an illegal
+        # instruction on ordinary desktops.
+        run: zig build "-Dtarget=x86_64-windows" -Doptimize=ReleaseSafe
       - name: Package
         shell: pwsh
         run: |
